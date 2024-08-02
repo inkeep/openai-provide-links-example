@@ -1,15 +1,15 @@
-import { z } from "zod";
+import { z } from 'zod';
 
 const InkeepRecordTypes = z.enum([
-  "documentation",
-  "site",
-  "discourse_post",
-  "github_issue",
-  "github_discussion",
-  "stackoverflow_question",
-  "discord_forum_post",
-  "discord_message",
-  "custom_question_answer",
+  'documentation',
+  'site',
+  'discourse_post',
+  'github_issue',
+  'github_discussion',
+  'stackoverflow_question',
+  'discord_forum_post',
+  'discord_message',
+  'custom_question_answer',
 ]);
 
 const LinkType = z.union([
