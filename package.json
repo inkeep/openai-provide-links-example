@@ -1,18 +1,15 @@
 {
-  "name": "ai",
+  "name": "inkeep-chat-api-examples",
   "version": "1.0.0",
-  "main": "index.js",
-  "type": "module",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+  "directories": {
+    "example": "examples"
   },
-  "author": "",
-  "license": "ISC",
+  "keywords": [],
+  "author": "Nick Gomez",
+  "license": "MIT",
   "description": "",
-  "dependencies": {
-    "@ai-sdk/openai": "^0.0.39",
-    "ai": "^3.2.35",
-    "openai": "^4.53.0",
-    "zod": "^3.23.8"
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/inkeep/inkeep-chat-api-examples.git"
   }
 }
