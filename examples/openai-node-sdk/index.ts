@@ -1,68 +1,45 @@
 import OpenAI from 'openai';
-import type { LinksToolSchema } from './schema';
+import { LinksToolSchema } from './schema';
+import { z } from 'zod';
+import { zodToJsonSchema } from 'zod-to-json-schema';
 
-/*
-      AI MODEL
-inkeep-qa-sonnet-3-5 (recommended) 
-
-inkeep-qa-gpt-4o 
-
-inkeep-qa-gpt-4-turbo 
-
-inkeep-contextual-gpt-4-turbo (recommended) 
-
-inkeep-contextual-gpt-4o
-
-*/
+if (!process.env.INKEEP_API_KEY) {
+  throw new Error('INKEEP_API_KEY is required');
+}
 
 const client = new OpenAI({
   baseURL: 'https://api.inkeep.com/v1/',
-  apiKey: 'aad40320d00e7c09ea18df89a31028bf6068d6c8fd8c6c09' || 'YOUR_API_KEY',
+  apiKey: process.env.INKEEP_API_KEY,
 });
 
 async function getResponseFromAI() {
   const result = await client.chat.completions.create({
     model: 'inkeep-contextual-gpt-4-turbo', // ai model
-    messages: [{ role: 'user', content: 'Why Inkeep?' }],
-    functions: [
+    messages: [{ role: 'user', content: 'Why Inkeep?' }, { role: 'assistant', content: 'Inkeep is a tool for building knowledge bases.' }],
+    tools: [
       {
-        name: 'provideLinks',
-        description: 'Provides links',
-        parameters: {
-          type: 'object',
-          properties: {
-            text: { type: 'string' },
-            links: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  label: { type: 'string', nullable: true },
-                  url: { type: 'string' },
-                  title: { type: 'string', nullable: true },
-                  description: { type: 'string', nullable: true },
-                  type: { type: 'string', nullable: true },
-                  breadcrumbs: {
-                    type: 'array',
-                    items: { type: 'string' },
-                    nullable: true,
-                  },
-                },
-              },
-              nullable: true,
-            },
-          },
-          required: ['text', 'links'],
+        type: 'function',
+        function: {
+          name: 'provideLinks',
+          description: 'Provides links',
+          parameters: zodToJsonSchema(LinksToolSchema.extend({
+            text: z.string(),
+          })),
         },
       },
     ],
   });
 
   // Check if the function is called in the response
-  const functionCall = result.choices[0]?.message?.function_call;
-  if (functionCall?.name === 'provideLinks') {
-    const functionArgs = JSON.parse(functionCall.arguments as string);
-    await provideLinks(functionArgs);
+  const toolCalls = result.choices[0]?.message?.tool_calls;
+  if (toolCalls && toolCalls.length > 0) {
+    const provideLinksCall = toolCalls.find(call => call.function.name === 'provideLinks');
+    if (provideLinksCall) {
+      const functionArgs = JSON.parse(provideLinksCall.function.arguments);
+      await provideLinks(functionArgs);
+    } else {
+      console.log('No provideLinks tool call found');
+    }
   } else {
     console.log('result', result);
   }

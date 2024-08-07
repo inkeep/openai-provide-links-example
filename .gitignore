@@ -2,3 +2,5 @@ examples/openai-node-sdk/node_modules
 examples/openai-node-sdk/.env
 examples/vercel-ai-sdk/node_modules
 examples/vercel-ai-sdk/.env
+
+node_modules

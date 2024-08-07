@@ -1,14 +1,15 @@
 {
-  "name": "openai-provide-links-example",
+  "name": "inkeep-chat-api-examples",
   "version": "1.0.0",
   "directories": {
     "example": "examples"
   },
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": ""
+  "author": "Nick Gomez",
+  "license": "MIT",
+  "description": "",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/inkeep/inkeep-chat-api-examples.git"
+  }
 }
