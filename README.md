@@ -6,7 +6,7 @@
 
    ```sh
    git clone <repository_url>
-   cd openai-node-sdk-example
+   cd examples/qa-mode/openai-node-sdk
    ```
 
 2. Install the dependencies:
@@ -30,6 +30,7 @@ This is an example project demonstrating the use of the OpenAI Node SDK with Typ
    const client = new OpenAI({
      baseURL: "https://api.inkeep.com/v1/",
      apiKey: "YOUR_API_KEY",
+     // dangerouslyAllowBrowser: true, // use this setting if you are using this in browser
    });
    ```
 
@@ -60,15 +61,38 @@ This is an example project demonstrating the use of the Vercel AI SDK with TypeS
 
 ## Project Structure
 
-### openai-node-sdk
+## qa-mode
+
+The `qa` models are specifically tailored for customer-facing support bot scenarios. More information in our [docs](https://docs.inkeep.com/ai-api/openai-chat-completion-endpoint#question-answer-qa-mode).
+
+### openai-node-sdk-qa
 
 - `index.ts`: Main entry point of the application. It demonstrates how to use the OpenAI Node SDK to create a chat completion and handle tools.
-- `schema.ts`: Contains Zod schemas used for validating data structures.
+- `LinksToolSchema.ts`: Contains Zod schemas used for validating data structures.
+
+### vercel-ai-sdk-qa
+
+Open localhost:3000 to see a basic AI application that uses Vercel AI SDK. These examples show how to set up the `provideLinks` tool call, and how to stream the response to the client.
+
+#### Route handler implementation
+
+- `app/api/chat/route.ts`: Route handler implementation for the chat endpoint.
+- `app/useChat/page.tsx`: Page implementation that uses `useChat` to stream a response from the server. Go to localhost:3000/useChat to see the page.
+
+#### React Server Component implementation
+
+- `components/chat.tsx`: Chat client component that renders the response messages that are streamed from the server. This also has a form that calls `submitUserMessage` with the form's input value.
+- `lib/chat/actions.tsx`: `submitUserMessage` calls `streamUI` with relevant configuration to stream the response to the client and handle tool calling.
+- `inkeep-qa-schema.ts`: Contains Zod schemas used for validating data structures.
+
+## contextual-mode
+
+These examples show how to set up the API calls that use Inkeep's contextual mode, and how to stream a structured JSON response to the client. More information regarding Inkeep's contextual mode can be found in our [docs](https://docs.inkeep.com/ai-api/openai-chat-completion-endpoint#contextual-mode).
 
 ### vercel-ai-sdk
 
-- `index.ts`: Main entry point of the application. It demonstrates how to use the Vercel AI SDK to interact with OpenAI's API and implement a custom tool.
-- `schema.ts`: Contains Zod schemas used for validating data structures.
+- `index.ts`: Main entry point of the application.
+- `LinksToolSchema.ts`: Contains Zod schemas used for validating data structures.
 
 ## Dependencies
 

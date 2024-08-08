@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from 'zod'
 
 const InkeepRecordTypes = z.enum([
   'documentation',
@@ -9,28 +9,32 @@ const InkeepRecordTypes = z.enum([
   'stackoverflow_question',
   'discord_forum_post',
   'discord_message',
-  'custom_question_answer',
-]);
+  'custom_question_answer'
+])
 
 const LinkType = z.union([
   InkeepRecordTypes,
-  z.string(), // catch all
-]);
+  z.string() // catch all
+])
 
 const LinkSchema = z
   .object({
-    label: z.string().nullish(), // the value of the footnote, e.g. `1`
+    label: z.string().nullish(), // what it's referenced as in the message body, e.g. '1'
     url: z.string(),
     title: z.string().nullish(),
     description: z.string().nullish(),
     type: LinkType.nullish(),
-    breadcrumbs: z.array(z.string()).nullish(),
+    breadcrumbs: z.array(z.string()).nullish()
   })
-  .passthrough();
+  .passthrough()
 
-export const LinksSchema = z.array(LinkSchema).nullish();
+export const LinksSchema = z.array(LinkSchema).nullish()
 
 export const LinksToolSchema = z.object({
-  text: z.string(),
-  links: LinksSchema,
-}); // schema used when `provideLinks` is invoked
+  links: LinksSchema
+})
+
+export const LinksTool = {
+  description: "Retrieve links related to the assistant's response",
+  parameters: LinksToolSchema
+}
