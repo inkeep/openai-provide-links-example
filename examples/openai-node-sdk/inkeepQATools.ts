@@ -30,4 +30,27 @@ export const LinksSchema = z.array(LinkSchema).nullish();
 
 export const LinksToolSchema = z.object({
     links: LinksSchema,
-}); // schema used when `provideLinks` is invoked 
+});
+
+// Define a type for the tool schema
+type ToolSchemaType = {
+    name: z.ZodLiteral<string>;
+    schema: z.ZodTypeAny;
+};
+
+// Define a function to create a tool schema
+const createToolSchema = <T extends string, S extends z.ZodTypeAny>(
+    name: T,
+    schema: S
+): ToolSchemaType => ({
+    name: z.literal(name),
+    schema: schema,
+});
+
+// Define available tools
+export const inkeepQATools = {
+    provideLinks: createToolSchema("provideLinks", LinksToolSchema),
+    // Add other Inkeep tools
+};
+
+export type InkeepQATools = typeof inkeepQATools;

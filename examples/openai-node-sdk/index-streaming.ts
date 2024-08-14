@@ -1,129 +1,140 @@
 import OpenAI from "openai";
-import { LinksToolSchema } from "./schema";
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
+import { inkeepQATools, type InkeepQATools } from "./inkeepQATools";
 
+// Ensure the API key is set
 if (!process.env.INKEEP_API_KEY) {
 	throw new Error("INKEEP_API_KEY is required");
 }
 
+// Initialize OpenAI client with Inkeep's base URL
 const client = new OpenAI({
 	baseURL: "https://api.inkeep.com/v1/",
 	apiKey: process.env.INKEEP_API_KEY,
 });
 
+/*====================================*/
+/* GENERIC PARTIAL TOOL CALL HANDLING */
+
+// Define the schema for partial tool calls
+const PartialToolCallSchema = z.object({
+	id: z.string().optional(),
+	type: z.literal("function"),
+	function: z
+		.object({
+			name: z.string(),
+			arguments: z.string(),
+		})
+		.partial(),
+});
+
+type PartialToolCall = z.infer<typeof PartialToolCallSchema>;
+
+function updateToolCall(
+	currentToolCall: PartialToolCall | null,
+	newToolCallData: OpenAI.Chat.Completions.ChatCompletionChunk.Choice.Delta.ToolCall,
+): PartialToolCall {
+	// Merge the new tool call data with the existing data
+	return PartialToolCallSchema.parse({
+		id: newToolCallData.id ?? currentToolCall?.id ?? "",
+		type: "function",
+		function: {
+			name: (currentToolCall?.function?.name ?? "") + (newToolCallData.function?.name ?? ""),
+			arguments:
+				(currentToolCall?.function?.arguments ?? "") + (newToolCallData.function?.arguments ?? ""),
+		},
+	});
+}
+
+// attempts to execute a tool call, fails if incomplete
+async function attemptToolCallProcessing(toolCall: PartialToolCall | null) {
+  const { name, arguments: args } = toolCall?.function ?? {};
+  if (!name || !args) return;
+
+  try { 
+    const toolName = name as keyof InkeepQATools;
+    const tool = inkeepQATools[toolName];
+    
+    if (!tool) {
+      console.log(`Unknown tool: ${toolName}`);
+      return;
+    }
+
+    const validatedArgs = tool.schema.parse(JSON.parse(args)); 
+    await executeToolCall(toolName, validatedArgs);
+  } catch (error) {
+    if (!(error instanceof SyntaxError)) {
+      console.error("Error executeing tool call:", error);
+    }
+  }
+}
+
+
+/* HANDLERS FOR DISPLAYING MESSAGE AND TOOL CALLS (ADD YOUR CUSTOM LOGIC HERE) */
+
+// example cumulative message handler
+const renderMessage = (message: string) => {
+  console.log("\nMessage: ", message);
+}
+
+// example provideLinks handler
+const provideLinks = async (args: z.infer<typeof inkeepQATools.provideLinks.schema>) => {
+	console.log("\nLinks used in response: ", args.links);
+};
+
+// custom tool function handling
+async function executeToolCall<T extends keyof InkeepQATools>(
+	toolName: T,
+	args: z.infer<InkeepQATools[T]["schema"]>,
+) {
+	switch (toolName) {
+		case "provideLinks":
+			await provideLinks(args);
+			break;
+		default:
+			console.log(`No executeor defined for tool: ${toolName}`);
+	}
+}
+
+/*====================================*/
+/* CALLING INKEEP QA */
+
 async function getResponseFromAI() {
+	// Create a streaming chat completion
 	const stream = await client.chat.completions.create({
 		model: "inkeep-qa-sonnet-3-5",
 		messages: [{ role: "user", content: "How do I get started?" }],
-		tools: [
-			{
-				type: "function",
-				function: {
-					name: "provideLinks",
-					description: "Provides links",
-					parameters: zodToJsonSchema(LinksToolSchema),
-				},
+		tools: Object.entries(inkeepQATools).map(([toolName, tool]) => ({
+			type: "function",
+			function: {
+				name: toolName,
+				description: `Provides ${toolName}`,
+				parameters: zodToJsonSchema(tool.schema),
 			},
-		],
+		})),
 		tool_choice: "auto",
 		stream: true,
 	});
 
 	let fullContent = "";
+	let latestToolCall: PartialToolCall | null = null; // accumulate the latest tool call
 
-	let currentToolCall: Partial<OpenAI.Chat.Completions.ChatCompletionMessageToolCall> | null =
-		null;
-
+	// Process the stream
 	for await (const chunk of stream) {
+		// Accumulate content if present
 		if (chunk.choices[0]?.delta?.content) {
 			fullContent += chunk.choices[0].delta.content;
-      // process partial content
+      renderMessage(fullContent);
 		}
 
-		if (chunk.choices[0]?.delta?.tool_calls) {
-			const toolCall = chunk.choices[0].delta.tool_calls[0];
-			if (toolCall) {
-				if (!currentToolCall) {
-					currentToolCall = {
-						id: toolCall.id ?? "",
-						type: toolCall.type ?? "function",
-						function: {
-							name: toolCall.function?.name ?? "",
-							arguments: toolCall.function?.arguments ?? "",
-						},
-					};
-				} else {
-					if (toolCall.function?.name) {
-						currentToolCall = currentToolCall ?? {};
-						currentToolCall.function = currentToolCall.function ?? {
-							name: "",
-							arguments: "",
-						};
-						currentToolCall.function.name += toolCall.function.name;
-					}
-					if (toolCall.function?.arguments) {
-						currentToolCall = currentToolCall ?? {};
-						currentToolCall.function = currentToolCall.function ?? {
-							name: "",
-							arguments: "",
-						};
-						currentToolCall.function.arguments += toolCall.function.arguments;
-					}
-				}
-
-				console.log(
-					"Current tool call state:",
-					JSON.stringify(currentToolCall, null, 2),
-				);
-
-				// Check if the tool call is complete
-				if (
-					currentToolCall.function?.name &&
-					currentToolCall.function.arguments
-				) {
-					try { 
-            // attempt to parse the arguments as JSON, call the function
-						JSON.parse(currentToolCall.function.arguments);
-						await processToolCall(currentToolCall);
-						currentToolCall = null;
-					} catch (error) { 
-						// Arguments are not yet complete JSON, continue accumulating
-					}
-				}
-			}
+		// Process tool calls
+		if (chunk.choices[0]?.delta?.tool_calls?.[0]) {
+			latestToolCall = updateToolCall(latestToolCall, chunk.choices[0].delta.tool_calls[0]);
+			await attemptToolCallProcessing(latestToolCall);
 		}
 	}
 }
 
-async function processToolCall(
-	toolCall: Partial<OpenAI.Chat.Completions.ChatCompletionMessageToolCall>,
-) {
-	console.log("Processing tool call:", JSON.stringify(toolCall, null, 2));
-	if (
-		toolCall?.function?.name === "provideLinks" &&
-		toolCall.function.arguments
-	) {
-		try {
-			const functionArgs = JSON.parse(toolCall.function.arguments);
-			await provideLinks(functionArgs);
-		} catch (error) {
-			console.error("Error parsing function arguments:", error);
-		}
-	} else {
-		console.log("Tool call not processed: invalid name or missing arguments");
-	}
-}
-
-// The provideLinks function remains the same
-const provideLinks = async ({
-	links,
-	text,
-}: { links?: (typeof LinksToolSchema._type)["links"]; text: string }) => {
-	console.log("\nLinks used in response: ", links);
-	return Promise.resolve();
-};
-
-getResponseFromAI().catch((error) =>
-	console.error("Error in getResponseFromAI:", error),
-);
+// Run the main function
+getResponseFromAI().catch((error) => console.error("Error in getResponseFromAI:", error));
