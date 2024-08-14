@@ -32,6 +32,7 @@ async function getResponseFromAI() {
 
   // Check if the function is called in the response
   const toolCalls = result.choices[0]?.message?.tool_calls;
+  console.log('toolCalls', toolCalls);
   if (toolCalls && toolCalls.length > 0) {
     const provideLinksCall = toolCalls.find(call => call.function.name === 'provideLinks');
     if (provideLinksCall) {
