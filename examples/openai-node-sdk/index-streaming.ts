@@ -1,7 +1,10 @@
 import OpenAI from "openai";
 import { z } from "zod";
-import { zodToJsonSchema } from "zod-to-json-schema";
-import { inkeepQATools, type InkeepQATools } from "./inkeepQATools";
+import {
+	inkeepQATools,
+	inkeepQAToolsForChatCompletion,
+	type InkeepQATools,
+} from "./inkeepQAToolsSchema";
 
 // Ensure the API key is set
 if (!process.env.INKEEP_API_KEY) {
@@ -40,62 +43,56 @@ function updateToolCall(
 		id: newToolCallData.id ?? currentToolCall?.id ?? "",
 		type: "function",
 		function: {
-			name: (currentToolCall?.function?.name ?? "") + (newToolCallData.function?.name ?? ""),
+			name:
+				(currentToolCall?.function?.name ?? "") +
+				(newToolCallData.function?.name ?? ""),
 			arguments:
-				(currentToolCall?.function?.arguments ?? "") + (newToolCallData.function?.arguments ?? ""),
+				(currentToolCall?.function?.arguments ?? "") +
+				(newToolCallData.function?.arguments ?? ""),
 		},
 	});
 }
-
-// attempts to execute a tool call, fails if incomplete
-async function attemptToolCallProcessing(toolCall: PartialToolCall | null) {
-  const { name, arguments: args } = toolCall?.function ?? {};
-  if (!name || !args) return;
-
-  try { 
-    const toolName = name as keyof InkeepQATools;
-    const tool = inkeepQATools[toolName];
-    
-    if (!tool) {
-      console.log(`Unknown tool: ${toolName}`);
-      return;
-    }
-
-    const validatedArgs = tool.schema.parse(JSON.parse(args)); 
-    await executeToolCall(toolName, validatedArgs);
-  } catch (error) {
-    if (!(error instanceof SyntaxError)) {
-      console.error("Error executeing tool call:", error);
-    }
-  }
-}
-
 
 /* HANDLERS FOR DISPLAYING MESSAGE AND TOOL CALLS (ADD YOUR CUSTOM LOGIC HERE) */
 
 // example cumulative message handler
 const renderMessage = (message: string) => {
-  console.log("\nMessage: ", message);
-}
+	console.log("\nMessage: ", message);
+};
 
 // example provideLinks handler
-const provideLinks = async (args: z.infer<typeof inkeepQATools.provideLinks.schema>) => {
+const provideLinks = async (
+	args: z.infer<typeof inkeepQATools.provideLinks.schema>,
+) => {
 	console.log("\nLinks used in response: ", args.links);
 };
 
-// custom tool function handling
-async function executeToolCall<T extends keyof InkeepQATools>(
-	toolName: T,
-	args: z.infer<InkeepQATools[T]["schema"]>,
-) {
-	switch (toolName) {
-		case "provideLinks":
-			await provideLinks(args);
-			break;
-		default:
-			console.log(`No executeor defined for tool: ${toolName}`);
+// Tool handlers
+const toolHandlers: {
+	[K in keyof InkeepQATools]: (
+		args: z.infer<InkeepQATools[K]["schema"]>,
+	) => Promise<void>;
+} = {
+	provideLinks,
+};
+
+// Process a single tool call
+const executeToolCall = async (toolCall: PartialToolCall) => {
+	const { name, arguments: args } = toolCall.function;
+	if (!name || !args) return;
+
+	const toolName = name as keyof InkeepQATools;
+	const tool = inkeepQATools[toolName];
+	const handler = toolHandlers[toolName];
+
+	if (!tool || !handler) {
+		console.log(`No handler defined for tool: ${toolName}`);
+		return;
 	}
-}
+
+	const parsedArgs = tool.schema.parse(JSON.parse(args));
+	await handler(parsedArgs);
+};
 
 /*====================================*/
 /* CALLING INKEEP QA */
@@ -103,16 +100,9 @@ async function executeToolCall<T extends keyof InkeepQATools>(
 async function getResponseFromAI() {
 	// Create a streaming chat completion
 	const stream = await client.chat.completions.create({
-		model: "inkeep-qa-sonnet-3-5",
-		messages: [{ role: "user", content: "How do I get started?" }],
-		tools: Object.entries(inkeepQATools).map(([toolName, tool]) => ({
-			type: "function",
-			function: {
-				name: toolName,
-				description: `Provides ${toolName}`,
-				parameters: zodToJsonSchema(tool.schema),
-			},
-		})),
+		model: "inkeep-qa-expert",
+		messages: [{ role: "user", content: "How do I get started? Be concise." }],
+		tools: inkeepQAToolsForChatCompletion,
 		tool_choice: "auto",
 		stream: true,
 	});
@@ -125,16 +115,37 @@ async function getResponseFromAI() {
 		// Accumulate content if present
 		if (chunk.choices[0]?.delta?.content) {
 			fullContent += chunk.choices[0].delta.content;
-      renderMessage(fullContent);
+			renderMessage(fullContent);
 		}
 
 		// Process tool calls
 		if (chunk.choices[0]?.delta?.tool_calls?.[0]) {
-			latestToolCall = updateToolCall(latestToolCall, chunk.choices[0].delta.tool_calls[0]);
-			await attemptToolCallProcessing(latestToolCall);
+			latestToolCall = updateToolCall(
+				latestToolCall,
+				chunk.choices[0].delta.tool_calls[0],
+			);
+
+			if (
+				!(latestToolCall.function.arguments && latestToolCall.function.name)
+			) {
+				continue;
+			}
+
+			try {
+				await executeToolCall(latestToolCall);
+				latestToolCall = null; // Reset after successful execution
+			} catch (error) {
+				// If error is unrelated to parsing the tool call, reset the tool call
+        if (!(error instanceof SyntaxError) && !(error instanceof z.ZodError)) {
+          console.error("Error executing tool call:", error);
+          latestToolCall = null; // Reset on other errors
+        }
+			}
 		}
 	}
 }
 
 // Run the main function
-getResponseFromAI().catch((error) => console.error("Error in getResponseFromAI:", error));
+getResponseFromAI().catch((error) =>
+	console.error("Error in getResponseFromAI:", error),
+);

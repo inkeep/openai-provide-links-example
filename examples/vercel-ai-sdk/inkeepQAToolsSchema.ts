@@ -22,7 +22,6 @@ const LinkSchema = z
     label: z.string().nullish(), // the value of the footnote, e.g. `1`
     url: z.string(),
     title: z.string().nullish(),
-    description: z.string().nullish(),
     type: LinkType.nullish(),
     breadcrumbs: z.array(z.string()).nullish(),
   })
@@ -31,6 +30,5 @@ const LinkSchema = z
 export const LinksSchema = z.array(LinkSchema).nullish();
 
 export const LinksToolSchema = z.object({
-  text: z.string(),
   links: LinksSchema,
 }); // schema used when `provideLinks` is invoked

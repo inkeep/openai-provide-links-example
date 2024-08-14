@@ -1,6 +1,7 @@
 import { createOpenAI } from '@ai-sdk/openai';
 import { streamText, tool } from 'ai';
-import { LinksToolSchema } from './schema';
+import { LinksToolSchema } from './inkeepQAToolsSchema';
+import type { z } from 'zod';
 
 if (!process.env.INKEEP_API_KEY) {
   throw new Error('INKEEP_API_KEY is required');
@@ -11,8 +12,7 @@ const openai = createOpenAI({
   apiKey: process.env.INKEEP_API_KEY,
 });
 
-const provideLinks = async ({ links, text }: { links?: (typeof LinksToolSchema._type)['links']; text: string }) => {
-  console.log('Streamed text: ', text);
+const provideLinks = async ({ links }: z.infer<typeof LinksToolSchema>) => {
   console.log('\nLinks used in response: ', links);
 
   // must return promise
@@ -21,7 +21,7 @@ const provideLinks = async ({ links, text }: { links?: (typeof LinksToolSchema._
 
 const getResponseFromAI = async () => {
   const result = await streamText({
-    model: openai('inkeep-contextual-gpt-4-turbo'),
+    model: openai('inkeep-qa-expert'),
     tools: {
       provideLinks: tool({
         parameters: LinksToolSchema,
