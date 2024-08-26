@@ -2,7 +2,6 @@ import 'server-only'
 
 import { createAI, getMutableAIState, streamUI } from 'ai/rsc'
 import { createOpenAI } from '@ai-sdk/openai'
-
 import { Message } from 'ai'
 import { nanoid } from './utils'
 import { LinksTool } from './inkeep-qa-schema'
