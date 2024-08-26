@@ -10,6 +10,6 @@ if (!process.env.INKEEP_API_KEY) {
 
 // Initialize OpenAI client with Inkeep's base URL
 export const client = new OpenAI({
-	baseURL: "https://39eb9bd7232f.ngrok.app/v1",
+	baseURL: "https://api.inkeep.com/v1",
 	apiKey: process.env.INKEEP_API_KEY,
 });
