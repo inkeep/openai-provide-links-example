@@ -1,11 +1,11 @@
 import OpenAI from "openai";
-import dotenv from 'dotenv';
-import { resolve } from 'node:path';
+import dotenv from "dotenv";
+import { resolve } from "node:path";
 
-dotenv.config({ path: resolve(__dirname, '../.env') });
+dotenv.config({ path: resolve(__dirname, "../.env") });
 
 if (!process.env.INKEEP_API_KEY) {
-  throw new Error('INKEEP_API_KEY is required');
+	throw new Error("INKEEP_API_KEY is required");
 }
 
 // Initialize OpenAI client with Inkeep's base URL
