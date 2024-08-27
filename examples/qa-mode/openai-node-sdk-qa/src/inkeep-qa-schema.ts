@@ -1,24 +1,5 @@
-import type { ChatCompletionTool } from "openai/resources/chat/completions";
 import { z } from "zod";
-import zodToJsonSchema from "zod-to-json-schema";
 
-/* Generic typings for tools */
-type ToolSchemaType = {
-	name: z.ZodLiteral<string>;
-	schema: z.ZodTypeAny;
-};
-
-// Define a function to create a tool schema
-const createToolSchema = <T extends string, S extends z.ZodTypeAny>(
-	name: T,
-	schema: S
-): {
-	name: z.ZodLiteral<T>;
-	schema: S;
-} => ({
-	name: z.literal(name),
-	schema: schema,
-});
 /* Inkeep QA Tools */
 
 const InkeepRecordTypes = z.enum([
@@ -48,53 +29,28 @@ const LinkSchema = z
 	})
 	.passthrough();
 
-export const LinksSchema = z.array(LinkSchema).nullish();
+const LinksSchema = z.array(LinkSchema).nullish();
 
 export const ProvideLinksToolSchema = z.object({
 	links: LinksSchema,
 });
 
-const AnswerConfidence = z.union([
-	z.literal("very_confident").describe("Confident answer, no hesitation"),
-	z
-		.literal("somewhat_confident")
-		.describe("Answer addresses question with minor uncertainties"),
-	z
-		.literal("not_confident")
-		.describe("Suggestions provided, no direct answer in sources"),
-	z.literal("no_sources").describe("No relevant information found"),
-	z.literal("other").describe("Unclear question or unrelated to product"),
-	z.string().describe("catch all"),
+const KnownAnswerConfidence = z.enum([
+	"very_confident",
+	"somewhat_confident",
+	"not_confident",
+	"no_sources",
+	"other",
 ]);
 
-const AIAnnotationsToolSchema = z.object({
-	answerConfidence: AnswerConfidence,
-}).passthrough();
+const AnswerConfidence = z.union([KnownAnswerConfidence, z.string()]); // evolvable
 
-const ProvideAIAnnotationsToolSchema = z.object({
+const AIAnnotationsToolSchema = z
+	.object({
+		answerConfidence: AnswerConfidence,
+	})
+	.passthrough();
+
+export const ProvideAIAnnotationsToolSchema = z.object({
 	aiAnnotations: AIAnnotationsToolSchema,
 });
-
-/* Available tools */
-
-// comment out any tools you don't want to use
-export const InkeepQAToolsSchema = {
-	provideLinks: createToolSchema("provideLinks", ProvideLinksToolSchema),
-	provideAIAnnotations: createToolSchema("provideAIAnnotations", ProvideAIAnnotationsToolSchema),
-	// Add other Inkeep tools
-};
-
-export type InkeepQATools = typeof InkeepQAToolsSchema;
-
-export const inkeepQAToolsForChatCompletion = Object.entries(InkeepQAToolsSchema).map(
-	([toolName, tool]) => ({
-		type: "function",
-		function: {
-			name: toolName,
-			parameters: zodToJsonSchema(tool.schema),
-		},
-	}),
-) as ChatCompletionTool[]; // for 'tools' property in ChatCompletionCreate
-
-
-console.log(JSON.stringify(inkeepQAToolsForChatCompletion, null, 2));

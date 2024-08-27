@@ -2,10 +2,14 @@ import 'server-only'
 
 import { createAI, getMutableAIState, streamUI } from 'ai/rsc'
 import { createOpenAI } from '@ai-sdk/openai'
-import { Message } from 'ai'
-import { nanoid } from './utils'
-import { LinksTool } from './inkeep-qa-schema'
-
+import type { CoreMessage, Message } from 'ai'
+import { nanoid } from '@/lib/nanoid'
+import {
+  ProvideAIAnnotationsToolSchema,
+  ProvideLinksToolSchema
+} from '@/lib/chat/inkeep-qa-schema'
+import type { z } from 'zod'
+import { MessageUI } from './Message'
 const openai = createOpenAI({
   apiKey: process.env.INKEEP_API_KEY,
   baseURL: 'https://api.inkeep.com/v1'
@@ -33,12 +37,17 @@ async function submitUserMessage(content: string) {
   const result = await streamUI({
     model: openai('inkeep-qa-sonnet-3-5'),
     messages: [
-      ...aiState.get().messages.map((message: any) => ({
-        role: message.role,
-        content: message.content,
-        name: 'inkeep-qa-user-message',
-        id: message.id
-      }))
+      ...aiState
+        .get()
+        .messages.filter(message => message.role !== 'tool')
+        .map(
+          message =>
+            ({
+              role: message.role,
+              content: message.content,
+              id: message.id
+            }) as CoreMessage
+        )
     ],
     text: ({ content }) => {
       const assistantAnswerMessage = {
@@ -63,8 +72,10 @@ async function submitUserMessage(content: string) {
     },
     tools: {
       provideLinks: {
-        ...LinksTool,
+        parameters: ProvideLinksToolSchema,
         generate: async ({ links }) => {
+          console.log('links', links)
+          // gets executed when provideLinks is returned from the LLM
           const currentMessages = aiState.get().messages
           const lastMessage = currentMessages[currentMessages.length - 1]
           const lastMessageWithToolResults = {
@@ -77,7 +88,7 @@ async function submitUserMessage(content: string) {
             ]
           } as Message
 
-          aiState.done({
+          aiState.update({
             ...aiState.get(),
             messages: [
               ...currentMessages.slice(0, -1),
@@ -85,7 +96,37 @@ async function submitUserMessage(content: string) {
             ]
           })
 
-          return <div>{lastMessageWithToolResults.content}</div>
+          return <MessageUI message={lastMessageWithToolResults} />
+        }
+      },
+      provideAIAnnotations: {
+        parameters: ProvideAIAnnotationsToolSchema,
+        generate: async ({ aiAnnotations }) => {
+          console.log('aiAnnotations', aiAnnotations)
+          const lastMessage =
+            aiState.get().messages[aiState.get().messages.length - 1]
+
+          const lastMessageWithToolResults = {
+            ...lastMessage,
+            toolInvocations: [
+              {
+                toolName: 'provideAIAnnotations',
+                result: aiAnnotations
+              }
+            ]
+          } as Message
+
+          aiState.done({
+            ...aiState.get(),
+            messages: [
+              ...aiState.get().messages.slice(0, -1),
+              lastMessageWithToolResults
+            ]
+          })
+
+          // e.g. conditionally render on e.g. aiAnnotations.answerConfidence === 'very_confident'
+          return <MessageUI message={lastMessageWithToolResults} />
+          // gets executed when provideAIAnnotations is returned from the LLM
         }
       }
     },
