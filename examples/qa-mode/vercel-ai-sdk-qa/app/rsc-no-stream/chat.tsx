@@ -1,37 +1,26 @@
 'use client'
 
-import { useUIState, useAIState, useActions } from 'ai/rsc'
-import { Message } from 'ai'
-import { UIState } from '@/lib/chat/actions'
-import { nanoid } from '@/lib/chat/utils'
+import { useUIState, useActions } from 'ai/rsc'
+import type { Message } from 'ai'
+import type { AI } from './assistant'
+import { nanoid } from '@/lib/nanoid'
 
-export interface ChatProps extends React.ComponentProps<'div'> {
-  initialMessages?: Message[]
-  id?: string
-}
-
-export function Chat({ id, className }: ChatProps) {
-  const [messages] = useUIState()
-
+export function Chat() {
   return (
     <div className="group w-full overflow-auto pl-0 peer-[[data-state=open]]:lg:pl-[250px] peer-[[data-state=open]]:xl:pl-[300px]">
       <div className={'pb-[200px] pt-4 md:pt-10'}>
-        <ChatList messages={messages} />
+        <ChatList />
         <div className="w-full h-px" />
       </div>
     </div>
   )
 }
 
-export interface ChatList {
-  messages: UIState
-}
-
-export function ChatList({ messages }: ChatList) {
-  const [messagesUIState, setMessagesUIState] = useUIState()
+export function ChatList() {
+  const [messages, setMessages] = useUIState<typeof AI>()
   const { submitUserMessage } = useActions()
 
-  const handleSubmit = async (e: any) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
 
     const form = e.currentTarget
@@ -49,7 +38,7 @@ export function ChatList({ messages }: ChatList) {
     } as Message
 
     // Optimistically add user message UI
-    setMessagesUIState(currentMessages => [
+    setMessages(currentMessages => [
       ...currentMessages,
       {
         id: nanoid(),
@@ -59,7 +48,7 @@ export function ChatList({ messages }: ChatList) {
 
     // Submit and get response message
     const responseMessage = await submitUserMessage(value)
-    setMessagesUIState(currentMessages => [...currentMessages, responseMessage])
+    setMessages(currentMessages => [...currentMessages, responseMessage])
   }
 
   return (

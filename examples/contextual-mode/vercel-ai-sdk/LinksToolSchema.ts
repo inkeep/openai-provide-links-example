@@ -21,7 +21,6 @@ const LinkSchema = z.object({
     label: z.string().nullish(), // the value of the footnote, e.g. `1`
     url: z.string(),
     title: z.string().nullish(),
-    description: z.string().nullish(),
     type: LinkType.nullish(),
     breadcrumbs: z.array(z.string()).nullish(),
 }).passthrough();
@@ -29,5 +28,10 @@ const LinkSchema = z.object({
 export const LinksSchema = z.array(LinkSchema).nullish();
 
 export const LinksToolSchema = z.object({
+<<<<<<<< HEAD:examples/contextual-mode/vercel-ai-sdk/LinksToolSchema.ts
     links: LinksSchema,
 }); // schema used when `provideLinks` is invoked 
+========
+  links: LinksSchema,
+}); // schema used when `provideLinks` is invoked
+>>>>>>>> PRD-2507:examples/qa-mode/vercel-ai-sdk-qa/lib/chat/inkeepQAToolsSchema.ts
