@@ -12,7 +12,7 @@ const openai = createOpenAI({
 export async function POST(req: Request) {
   const reqJson = await req.json()
 
-  const result = await streamText({
+  const result = streamText({
     model: openai('inkeep-qa-sonnet-3-5'),
     tools: {
       provideLinks: {
@@ -28,5 +28,7 @@ export async function POST(req: Request) {
     toolChoice: 'auto'
   })
 
-  return result.toAIStreamResponse()
+  /* WARNING: toAIStreamResponse has been removed from streamText.
+   See migration guide at https://sdk.vercel.ai/docs/migrations */
+  return result.toAIStreamResponse();
 }
