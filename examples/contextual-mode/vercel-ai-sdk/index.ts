@@ -23,7 +23,7 @@ const StepSchema = z.object({
 
 async function getResponseFromAI() {
 
-  const result = await streamObject({
+  const result = streamObject({
     model: openai('inkeep-contextual-gpt-4-turbo'),
     schema: StepSchema,
     messages: [

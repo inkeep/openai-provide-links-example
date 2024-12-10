@@ -89,18 +89,18 @@ async function submitUserMessage(content: string) {
 
   // We need to wrap this in an async IIFE to avoid blocking.
   ;(async () => {
-    const { textStream, toolResults } = await streamText({
+    const { textStream, toolResults } = streamText({
       model: openai('inkeep-qa-sonnet-3-5'),
       messages: aiState
         .get()
         .filter(message => message.role !== 'tool')
         .map(
           message =>
-            ({
+            (({
               role: message.role,
               content: message.content,
               id: message.id
-            }) as CoreMessage
+            }) as CoreMessage)
         ),
       tools: {
         provideLinks: {
