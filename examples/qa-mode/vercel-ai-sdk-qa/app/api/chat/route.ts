@@ -28,7 +28,5 @@ export async function POST(req: Request) {
     toolChoice: 'auto'
   })
 
-  /* WARNING: toAIStreamResponse has been removed from streamText.
-   See migration guide at https://sdk.vercel.ai/docs/migrations */
-  return result.toAIStreamResponse();
+  return result.toDataStreamResponse();
 }
